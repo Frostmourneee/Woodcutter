@@ -42,7 +42,7 @@ authors="Frostmourneee" #optional
 
 # The description text for the mod (multi line!) (#mandatory)
 description='''
-A 1.19 forge mod which helps players to cut the trees. To cut off the whole tree a player should destroy
+A 1.19 forge mod which helps players to cut the trees. To cut the whole tree a player should destroy
 the lowest log block.
 '''
 # A dependency - use the . to indicate dependency for a specific modid. Dependencies are optional.

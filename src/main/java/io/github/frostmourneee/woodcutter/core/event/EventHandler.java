@@ -3,6 +3,7 @@ package io.github.frostmourneee.woodcutter.core.event;
 import io.github.frostmourneee.woodcutter.Woodcutter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.AxeItem;
@@ -15,7 +16,6 @@ import net.minecraftforge.fml.common.Mod;
 
 import java.util.ArrayList;
 
-import static io.github.frostmourneee.woodcutter.Woodcutter.customPrint;
 import static io.github.frostmourneee.woodcutter.Woodcutter.getNeighbour3D;
 
 @Mod.EventBusSubscriber(modid = Woodcutter.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
@@ -49,6 +49,8 @@ public class EventHandler {
             oldSize = oldPos.size();
         }
 
-        customPrint(123);
+        //Removing all the blocks found
+        for (BlockPos pos : logPos) level.destroyBlock(pos, true);
+        player.getItemBySlot(EquipmentSlot.MAINHAND).hurt(logPos.size(), RandomSource.create(), null);
     }
 }

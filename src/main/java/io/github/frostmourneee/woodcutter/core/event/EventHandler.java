@@ -9,6 +9,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -26,16 +27,17 @@ public class EventHandler {
         Player player = event.getPlayer();
         BlockState blockState = event.getState();
 
-        boolean flag1 = !player.isCreative() && blockState.is(BlockTags.LOGS) && player.getItemBySlot(EquipmentSlot.MAINHAND).getItem() instanceof AxeItem;
+        boolean flag1 = !player.isCreative() && blockState.is(BlockTags.LOGS) &&
+                        player.getItemBySlot(EquipmentSlot.MAINHAND).getItem() instanceof AxeItem;
         if (!flag1) return;
 
         ArrayList<BlockPos> logPos = new ArrayList<>();
-        int oldSize = 0;
         logPos.add(event.getPos());
         Block block = blockState.getBlock();
         LevelAccessor level = event.getLevel();
 
         //Looking for all logs in a tree
+        int oldSize = 0;
         while (oldSize != logPos.size()) {
             ArrayList<BlockPos> oldPos = new ArrayList<>(logPos);
 
@@ -48,6 +50,23 @@ public class EventHandler {
 
             oldSize = oldPos.size();
         }
+
+        //Decide whether the tree is natural or artificial
+        BlockPos rootOrUpperPos = null;
+        for (BlockPos pos : logPos) {
+            int naturalLeaves = 0;
+
+            for (int num = 1; num <= 26; num++) {
+                BlockPos neighbourPos = getNeighbour3D(pos, num);
+                BlockState neighbourState = level.getBlockState(neighbourPos);
+                if (neighbourState.is(BlockTags.LEAVES) && !neighbourState.getValue(LeavesBlock.PERSISTENT)) naturalLeaves++;
+                if (naturalLeaves == 9) {
+                    rootOrUpperPos = pos;
+                    break;
+                }
+            }
+        }
+        if (rootOrUpperPos == null) return;
 
         //Removing all the blocks found
         for (BlockPos pos : logPos) level.destroyBlock(pos, true);

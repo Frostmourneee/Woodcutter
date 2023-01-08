@@ -15,6 +15,7 @@ import net.minecraftforge.fml.common.Mod;
 
 import java.util.ArrayList;
 
+import static io.github.frostmourneee.woodcutter.Woodcutter.customPrint;
 import static io.github.frostmourneee.woodcutter.Woodcutter.getNeighbour3D;
 
 @Mod.EventBusSubscriber(modid = Woodcutter.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
@@ -47,5 +48,7 @@ public class EventHandler {
 
             oldSize = oldPos.size();
         }
+
+        customPrint(123);
     }
 }

@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import static io.github.frostmourneee.woodcutter.Woodcutter.getNeighbour3D;
 
 @Mod.EventBusSubscriber(modid = Woodcutter.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
-public class EventHandler {
+public class TreeCapitateEvent {
 
     @SubscribeEvent
     public static void treeCapitate(BlockEvent.BreakEvent event) {
@@ -52,24 +52,39 @@ public class EventHandler {
         }
 
         //Decide whether the tree is natural or artificial
-        BlockPos rootOrUpperPos = null;
-        for (BlockPos pos : logPos) {
+        boolean flag2 = false;
+        ArrayList<BlockPos> oldPos = new ArrayList<>(logPos);
+        for (BlockPos pos : oldPos) {
             int naturalLeaves = 0;
 
-            for (int num = 1; num <= 26; num++) {
+            for (int num = 1; num <= 26 && !flag2; num++) {
                 BlockPos neighbourPos = getNeighbour3D(pos, num);
                 BlockState neighbourState = level.getBlockState(neighbourPos);
                 if (neighbourState.is(BlockTags.LEAVES) && !neighbourState.getValue(LeavesBlock.PERSISTENT)) naturalLeaves++;
                 if (naturalLeaves == 9) {
-                    rootOrUpperPos = pos;
+                    flag2 = true;
                     break;
                 }
             }
+
+            //if no natural leaves above then erase a log block
+            boolean hasLeaveBlockAbove = false;
+            for (int height = 1; height <= 40; height++) {
+                BlockState aboveState = level.getBlockState(pos.above(height));
+                if (aboveState.is(BlockTags.LEAVES) && !aboveState.getValue(LeavesBlock.PERSISTENT)) {
+                    hasLeaveBlockAbove = true;
+                    break;
+                }
+            }
+            if (!hasLeaveBlockAbove) logPos.remove(pos);
+
         }
-        if (rootOrUpperPos == null) return;
+        if (!flag2) return;
 
         //Removing all the blocks found
-        for (BlockPos pos : logPos) level.destroyBlock(pos, true);
-        player.getItemBySlot(EquipmentSlot.MAINHAND).hurt(logPos.size(), RandomSource.create(), null);
+        if (logPos.contains(event.getPos())) {
+            for (BlockPos pos : logPos) level.destroyBlock(pos, true);
+            player.getItemBySlot(EquipmentSlot.MAINHAND).hurt(logPos.size(), RandomSource.create(), null);
+        }
     }
 }

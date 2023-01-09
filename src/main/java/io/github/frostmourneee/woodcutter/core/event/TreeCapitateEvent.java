@@ -27,9 +27,9 @@ public class TreeCapitateEvent {
         Player player = event.getPlayer();
         BlockState blockState = event.getState();
 
-        boolean flag1 = !player.isCreative() && blockState.is(BlockTags.LOGS) &&
+        boolean validExternalConditions = !player.isCreative() && blockState.is(BlockTags.LOGS) &&
                         player.getItemBySlot(EquipmentSlot.MAINHAND).getItem() instanceof AxeItem;
-        if (!flag1) return;
+        if (!validExternalConditions) return;
 
         ArrayList<BlockPos> logPos = new ArrayList<>();
         logPos.add(event.getPos());
@@ -52,17 +52,17 @@ public class TreeCapitateEvent {
         }
 
         //Decide whether the tree is natural or artificial
-        boolean flag2 = false;
+        boolean someLogHasAtLeast9NaturalLeavesNearby = false;
         ArrayList<BlockPos> oldPos = new ArrayList<>(logPos);
         for (BlockPos pos : oldPos) {
             int naturalLeaves = 0;
 
-            for (int num = 1; num <= 26 && !flag2; num++) {
+            for (int num = 1; num <= 26 && !someLogHasAtLeast9NaturalLeavesNearby; num++) {
                 BlockPos neighbourPos = getNeighbour3D(pos, num);
                 BlockState neighbourState = level.getBlockState(neighbourPos);
                 if (neighbourState.is(BlockTags.LEAVES) && !neighbourState.getValue(LeavesBlock.PERSISTENT)) naturalLeaves++;
                 if (naturalLeaves == 9) {
-                    flag2 = true;
+                    someLogHasAtLeast9NaturalLeavesNearby = true;
                     break;
                 }
             }
@@ -79,9 +79,9 @@ public class TreeCapitateEvent {
             if (!hasLeaveBlockAbove) logPos.remove(pos);
 
         }
-        if (!flag2) return;
+        if (!someLogHasAtLeast9NaturalLeavesNearby) return;
 
-        //Removing all the blocks found
+        //Removing all the blocks found and reducing axe's durability
         if (logPos.contains(event.getPos())) {
             for (BlockPos pos : logPos) level.destroyBlock(pos, true);
             player.getItemBySlot(EquipmentSlot.MAINHAND).hurt(logPos.size(), RandomSource.create(), null);

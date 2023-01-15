@@ -27,7 +27,7 @@ public class TreeCapitateEvent {
         Player player = event.getPlayer();
         BlockState blockState = event.getState();
 
-        boolean validExternalConditions = !player.isCreative() && blockState.is(BlockTags.LOGS) &&
+        boolean validExternalConditions = !player.isCreative() && blockState.is(BlockTags.LOGS_THAT_BURN) &&
                         player.getItemBySlot(EquipmentSlot.MAINHAND).getItem() instanceof AxeItem;
         if (!validExternalConditions) return;
 

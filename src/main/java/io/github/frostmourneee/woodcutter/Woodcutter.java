@@ -39,16 +39,6 @@ public class Woodcutter {
             default -> pos;
         };
     }
-
-    public static void customPrint(Object... str) {
-        StringBuilder stringBuilder = new StringBuilder();
-
-        for (Object s : str) {
-            stringBuilder.append(s);
-            stringBuilder.append(" ");
-        }
-        System.out.println(stringBuilder);
-    }
 }
 
 

@@ -8,7 +8,7 @@ public class Woodcutter {
 
     public static final String MODID = "woodcutter";
 
-    public static BlockPos getNeighbour3D(BlockPos pos, int num) {
+    public static BlockPos getNeighbour3DWDiag(BlockPos pos, int num) {
         return switch (num) {
             case 1 -> pos.below().north().east();
             case 2 -> pos.below().east();
@@ -36,18 +36,20 @@ public class Woodcutter {
             case 24 -> pos.above().north();
             case 25 -> pos.below();
             case 26 -> pos.above();
-            default -> pos;
+            default -> throw new RuntimeException("getNeighbour3DWDiag goes to default");
         };
     }
 
-    public static void customPrint(Object... str) {
-        StringBuilder stringBuilder = new StringBuilder();
-
-        for (Object s : str) {
-            stringBuilder.append(s);
-            stringBuilder.append(" ");
-        }
-        System.out.println(stringBuilder);
+    public static BlockPos getNeighbour3DWODiag(BlockPos pos, int num) {
+        return switch (num) {
+            case 1 -> pos.above();
+            case 2 -> pos.north();
+            case 3 -> pos.east();
+            case 4 -> pos.south();
+            case 5 -> pos.west();
+            case 6 -> pos.below();
+            default -> throw new RuntimeException("getNeighbour3DWODiag goes to default");
+        };
     }
 }
 

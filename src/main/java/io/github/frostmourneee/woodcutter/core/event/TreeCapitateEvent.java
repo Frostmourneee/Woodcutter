@@ -18,7 +18,7 @@ import net.minecraftforge.fml.common.Mod;
 
 import java.util.ArrayList;
 
-import static io.github.frostmourneee.woodcutter.Woodcutter.getNeighbour3D;
+import static io.github.frostmourneee.woodcutter.Woodcutter.*;
 
 @Mod.EventBusSubscriber(modid = Woodcutter.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class TreeCapitateEvent {
@@ -37,18 +37,28 @@ public class TreeCapitateEvent {
         Block block = blockState.getBlock();
         LevelAccessor level = event.getLevel();
 
-        //Looking for all logs in a tree
+        //Looking for logs and mangrove roots in a tree
         int oldSize = 0;
         while (oldSize != logPos.size()) {
             ArrayList<BlockPos> oldPos = new ArrayList<>(logPos);
 
             for (BlockPos pos : oldPos.subList(oldSize, oldPos.size())) {
-                for (int num = 1; num <= 26; num++) {
-                    BlockPos neighbourPos = getNeighbour3D(pos, num);
-                    BlockState neighbourState = level.getBlockState(neighbourPos);
-                    boolean sameLogOrMangroveRoots = neighbourState.is(block) ||
-                                                     (blockState.is(Blocks.MANGROVE_LOG) && neighbourState.is(Blocks.MANGROVE_ROOTS));
-                    if (sameLogOrMangroveRoots && !logPos.contains(neighbourPos)) logPos.add(neighbourPos);
+                if (level.getBlockState(pos).is(BlockTags.LOGS_THAT_BURN)) {
+                    for (int num = 1; num <= 26; num++) {
+                        BlockPos neighbourPos = getNeighbour3DWDiag(pos, num);
+                        BlockState neighbourState = level.getBlockState(neighbourPos);
+                        boolean sameLogOrMangroveRoot = neighbourState.is(block) ||
+                                                        (blockState.is(Blocks.MANGROVE_LOG) && neighbourState.is(Blocks.MANGROVE_ROOTS));
+                        if (sameLogOrMangroveRoot && !logPos.contains(neighbourPos)) logPos.add(neighbourPos);
+                    }
+                }
+
+                if (level.getBlockState(pos).is(Blocks.MANGROVE_ROOTS)) {
+                    for (int num = 1; num <= 6; num++) {
+                        BlockPos neighbourPos = getNeighbour3DWODiag(pos, num);
+                        BlockState neighbourState = level.getBlockState(neighbourPos);
+                        if (neighbourState.is(Blocks.MANGROVE_ROOTS) && !logPos.contains(neighbourPos)) logPos.add(neighbourPos);
+                    }
                 }
             }
 
@@ -63,7 +73,7 @@ public class TreeCapitateEvent {
             int naturalLeaves = 0;
 
             for (int num = 1; num <= 26 && !someLogHasAtLeast9NaturalLeavesNearby; num++) {
-                BlockPos neighbourPos = getNeighbour3D(pos, num);
+                BlockPos neighbourPos = getNeighbour3DWDiag(pos, num);
                 BlockState neighbourState = level.getBlockState(neighbourPos);
                 if (neighbourState.is(BlockTags.LEAVES) && !neighbourState.getValue(LeavesBlock.PERSISTENT)) naturalLeaves++;
                 if (naturalLeaves == 9) {
@@ -82,7 +92,6 @@ public class TreeCapitateEvent {
                 }
             }
             if (!hasLeaveBlockAbove) logPos.remove(pos);
-
         }
         if (!someLogHasAtLeast9NaturalLeavesNearby) return;
 

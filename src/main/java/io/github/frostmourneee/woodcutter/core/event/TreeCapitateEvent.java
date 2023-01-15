@@ -9,6 +9,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.event.level.BlockEvent;
@@ -27,8 +28,8 @@ public class TreeCapitateEvent {
         Player player = event.getPlayer();
         BlockState blockState = event.getState();
 
-        boolean validExternalConditions = !player.isCreative() && blockState.is(BlockTags.LOGS_THAT_BURN) &&
-                        player.getItemBySlot(EquipmentSlot.MAINHAND).getItem() instanceof AxeItem;
+        boolean validExternalConditions = !player.isShiftKeyDown() && !player.isCreative() && blockState.is(BlockTags.LOGS_THAT_BURN) &&
+                                          player.getItemBySlot(EquipmentSlot.MAINHAND).getItem() instanceof AxeItem;
         if (!validExternalConditions) return;
 
         ArrayList<BlockPos> logPos = new ArrayList<>();
@@ -44,7 +45,10 @@ public class TreeCapitateEvent {
             for (BlockPos pos : oldPos.subList(oldSize, oldPos.size())) {
                 for (int num = 1; num <= 26; num++) {
                     BlockPos neighbourPos = getNeighbour3D(pos, num);
-                    if (level.getBlockState(neighbourPos).is(block) && !logPos.contains(neighbourPos)) logPos.add(neighbourPos);
+                    BlockState neighbourState = level.getBlockState(neighbourPos);
+                    boolean sameLogOrMangroveRoots = neighbourState.is(block) ||
+                                                     (blockState.is(Blocks.MANGROVE_LOG) && neighbourState.is(Blocks.MANGROVE_ROOTS));
+                    if (sameLogOrMangroveRoots && !logPos.contains(neighbourPos)) logPos.add(neighbourPos);
                 }
             }
 
@@ -55,6 +59,7 @@ public class TreeCapitateEvent {
         boolean someLogHasAtLeast9NaturalLeavesNearby = false;
         ArrayList<BlockPos> oldPos = new ArrayList<>(logPos);
         for (BlockPos pos : oldPos) {
+            if (level.getBlockState(pos).is(Blocks.MANGROVE_ROOTS)) continue;
             int naturalLeaves = 0;
 
             for (int num = 1; num <= 26 && !someLogHasAtLeast9NaturalLeavesNearby; num++) {

@@ -28,8 +28,7 @@ public class TreeCapitateEvent {
         Player player = event.getPlayer();
         BlockState blockState = event.getState();
 
-        boolean validExternalConditions = !player.isShiftKeyDown() && !player.isCreative() && blockState.is(BlockTags.LOGS_THAT_BURN) &&
-                                          player.getItemBySlot(EquipmentSlot.MAINHAND).getItem() instanceof AxeItem;
+        boolean validExternalConditions = !player.isShiftKeyDown() && blockState.is(BlockTags.LOGS_THAT_BURN);
         if (!validExternalConditions) return;
 
         ArrayList<BlockPos> logPos = new ArrayList<>();
@@ -95,10 +94,12 @@ public class TreeCapitateEvent {
         }
         if (!someLogHasAtLeast9NaturalLeavesNearby) return;
 
-        //Removing all the blocks found and reducing axe's durability
+        //Removing all the blocks found and drawing tree's outline
         if (logPos.contains(event.getPos())) {
-            for (BlockPos pos : logPos) level.destroyBlock(pos, true);
-            player.getItemBySlot(EquipmentSlot.MAINHAND).hurt(logPos.size(), RandomSource.create(), null);
+            for (BlockPos pos : logPos) {
+                level.destroyBlock(pos, true);
+                level.setBlock(pos.above(30), level.getBlockState(pos), 2);
+            }
         }
     }
 }

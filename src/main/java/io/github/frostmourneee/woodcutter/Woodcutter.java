@@ -1,6 +1,10 @@
 package io.github.frostmourneee.woodcutter;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.block.LeavesBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.fml.common.Mod;
 
 @Mod(Woodcutter.MODID)
@@ -50,6 +54,18 @@ public class Woodcutter {
             case 6 -> pos.below();
             default -> throw new RuntimeException("getNeighbour3DWODiag goes to default");
         };
+    }
+
+    public static boolean hasAtLeast9NaturalLeavesAround (LevelAccessor level, BlockPos pos) {
+        int count = 0;
+        for (int num = 1; num <= 26; num++) {
+            BlockPos neighbourPos = getNeighbour3DWDiag(pos, num);
+            BlockState neighbourState = level.getBlockState(neighbourPos);
+            if (neighbourState.is(BlockTags.LEAVES) && !neighbourState.getValue(LeavesBlock.PERSISTENT)) count++;
+            if (count == 9) return true;
+        }
+
+        return false;
     }
 
     public static void customPrint(Object... str) {

@@ -2,12 +2,16 @@ package io.github.frostmourneee.woodcutter.core.event;
 
 import io.github.frostmourneee.woodcutter.Woodcutter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.util.datafix.fixes.ChunkPalettedStorageFix;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.LeavesBlock;
+import net.minecraft.world.level.block.RotatedPillarBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -15,6 +19,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 
 import static io.github.frostmourneee.woodcutter.Woodcutter.*;
 
@@ -132,7 +137,7 @@ public class TreeCapitateEvent {
         logPos.add(initLogPos);
         Block block = blockState.getBlock();
 
-        //Looking for logs in a "tree"
+        //Looking for logs in a "tree", may be got several trees
         int oldSize = 0;
         while (oldSize != logPos.size()) {
             ArrayList<BlockPos> oldPos = new ArrayList<>(logPos);
@@ -149,50 +154,73 @@ public class TreeCapitateEvent {
             oldSize = oldPos.size();
         }
 
-        //Distinguishing one tree from another
+        logPos.sort(Comparator.comparingInt(Vec3i::getY));
+        int logHeight = logPos.get(logPos.size()-1).getY() - logPos.get(0).getY() + 1;
+        if (logHeight < 4) return; //Too small tree
 
-        //Removing artificial branches and deciding whether the tree is natural or artificial
-        boolean someLogHasAtLeast9NaturalLeavesNearby = false;
+        //Fancy oak or artificial structure
+        if (logHeight > 6) {
+            customPrint("fancy");
+            //Deciding whether the tree is natural or artificial
+            boolean someLogHasAtLeast9NaturalLeavesNearby = false;
 
-        ArrayList<BlockPos> logPosBeforeRemoval = new ArrayList<>(logPos);
-        for (BlockPos pos : logPosBeforeRemoval) {
-            //Decide whether there is leaves block above or not
-            boolean hasLeavesBlockAbove = false;
-            for (int height = 1; height <= 40; height++) {
-                BlockState aboveState = level.getBlockState(pos.above(height));
-                if (aboveState.is(BlockTags.LEAVES) && !aboveState.getValue(LeavesBlock.PERSISTENT)) {
-                    hasLeavesBlockAbove = true;
-                    break;
+            ArrayList<BlockPos> logPosBeforeRemoval = new ArrayList<>(logPos);
+            for (BlockPos pos : logPosBeforeRemoval) {
+                //Decide whether there is leaves block above or not
+                boolean hasLeavesBlockAbove = false;
+                for (int height = 1; height <= 40; height++) {
+                    BlockState aboveState = level.getBlockState(pos.above(height));
+                    if (aboveState.is(BlockTags.LEAVES) && !aboveState.getValue(LeavesBlock.PERSISTENT)) {
+                        hasLeavesBlockAbove = true;
+                        break;
+                    }
+                }
+                if (!hasLeavesBlockAbove) {
+                    logPos.remove(pos);
+                    continue;
+                }
+
+                //Looking for at least 9 natural leaves blocks around
+                if (someLogHasAtLeast9NaturalLeavesNearby) continue;
+
+                int naturalLeaves = 0;
+                for (int num = 1; num <= 26; num++) {
+                    BlockPos neighbourPos = getNeighbour3DWDiag(pos, num);
+                    BlockState neighbourState = level.getBlockState(neighbourPos);
+                    if (neighbourState.is(BlockTags.LEAVES) && !neighbourState.getValue(LeavesBlock.PERSISTENT)) naturalLeaves++;
+                    if (naturalLeaves == 9) {
+                        someLogHasAtLeast9NaturalLeavesNearby = true;
+                        break;
+                    }
                 }
             }
-            if (!hasLeavesBlockAbove) {
-                logPos.remove(pos);
-                continue;
-            }
+            if (!someLogHasAtLeast9NaturalLeavesNearby) return;
 
-            //Looking for at least 9 natural leaves blocks around
-            if (someLogHasAtLeast9NaturalLeavesNearby) continue;
-
-            int naturalLeaves = 0;
-            for (int num = 1; num <= 26; num++) {
-                BlockPos neighbourPos = getNeighbour3DWDiag(pos, num);
-                BlockState neighbourState = level.getBlockState(neighbourPos);
-                if (neighbourState.is(BlockTags.LEAVES) && !neighbourState.getValue(LeavesBlock.PERSISTENT)) naturalLeaves++;
-                if (naturalLeaves == 9) {
-                    someLogHasAtLeast9NaturalLeavesNearby = true;
-                    break;
+            //Removing all the blocks found and drawing tree's outline
+            if (logPos.contains(initLogPos)) {
+                for (BlockPos pos : logPos) {
+                    level.setBlock(pos.above(30), level.getBlockState(pos), 2);
+                    level.destroyBlock(pos, true);
                 }
             }
-        }
-        if (!someLogHasAtLeast9NaturalLeavesNearby) return;
+        } else {
+            //Has one tree trunk?
+            for (BlockPos pos : logPos) {
+                boolean artificialSign = pos.getX() != initLogPos.getX() || pos.getZ() != initLogPos.getZ() ||
+                        level.getBlockState(pos).getValue(RotatedPillarBlock.AXIS) != Direction.Axis.Y;
+                if (artificialSign) return; //Artificial
+            }
 
-        //Removing all the blocks found and drawing tree's outline
-        if (logPos.contains(initLogPos)) {
+            //Natural tree or artificial
+            if (!hasAtLeast9NaturalLeavesAround(level, logPos.get(logPos.size()-1)) &&
+                    !hasAtLeast9NaturalLeavesAround(level, logPos.get(logPos.size()-2))) return;
+
+            //Remove tree and reduce axe's durability
             for (BlockPos pos : logPos) {
                 level.setBlock(pos.above(30), level.getBlockState(pos), 2);
                 level.destroyBlock(pos, true);
             }
-        }
+        } //Common oak
     }
 
     private static void cutSpruceTree(LevelAccessor level, BlockState blockState, BlockPos initLogPos) {

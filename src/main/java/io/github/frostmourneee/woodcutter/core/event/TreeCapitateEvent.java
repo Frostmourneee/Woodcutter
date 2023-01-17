@@ -3,10 +3,7 @@ package io.github.frostmourneee.woodcutter.core.event;
 import io.github.frostmourneee.woodcutter.Woodcutter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.tags.BlockTags;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -97,8 +94,8 @@ public class TreeCapitateEvent {
         //Removing all the blocks found and drawing tree's outline
         if (logPos.contains(event.getPos())) {
             for (BlockPos pos : logPos) {
-                level.destroyBlock(pos, true);
                 level.setBlock(pos.above(30), level.getBlockState(pos), 2);
+                level.destroyBlock(pos, true);
             }
         }
     }

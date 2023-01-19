@@ -81,16 +81,6 @@ public class Woodcutter {
 
         return res;
     }
-
-    public static void customPrint(Object... str) {
-        StringBuilder stringBuilder = new StringBuilder();
-
-        for (Object s : str) {
-            stringBuilder.append(s);
-            stringBuilder.append(" ");
-        }
-        System.out.println(stringBuilder);
-    }
 }
 
 

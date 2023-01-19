@@ -6,7 +6,10 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
@@ -30,44 +33,12 @@ import static io.github.frostmourneee.woodcutter.Woodcutter.*;
 public class TreeCapitateEvent {
 
     @SubscribeEvent
-    public static void removeTreeOutline(PlayerInteractEvent.RightClickBlock event) {
-        Level level = event.getLevel();
-        BlockPos initPos = event.getPos();
-        BlockState blockState = level.getBlockState(initPos);
-
-        if (!level.getBlockState(initPos).is(BlockTags.LOGS_THAT_BURN) || !event.getItemStack().is(Items.AIR)) return;
-
-        ArrayList<BlockPos> logPos = new ArrayList<>();
-        logPos.add(initPos);
-        Block block = blockState.getBlock();
-
-        //Looking for logs in a tree
-        int oldSize = 0;
-        while (oldSize != logPos.size()) {
-            ArrayList<BlockPos> oldPos = new ArrayList<>(logPos);
-
-            for (BlockPos pos : oldPos.subList(oldSize, oldPos.size())) {
-                if (event.getLevel().getBlockState(pos).is(BlockTags.LOGS_THAT_BURN)) {
-                    for (int num = 1; num <= 26; num++) {
-                        BlockPos neighbourPos = getNeighbour3DWDiag(pos, num);
-                        if (event.getLevel().getBlockState(neighbourPos).is(block) && !logPos.contains(neighbourPos)) logPos.add(neighbourPos);
-                    }
-                }
-            }
-
-            oldSize = oldPos.size();
-        }
-
-        //Removing all the blocks found and drawing tree's outline
-        for (BlockPos pos : logPos) level.destroyBlock(pos, false);
-    }
-
-    @SubscribeEvent
     public static void treeCapitate(BlockEvent.BreakEvent event) {
         Player player = event.getPlayer();
         BlockState blockState = event.getState();
 
-        boolean validExternalConditions = !player.isShiftKeyDown() && blockState.is(BlockTags.LOGS_THAT_BURN);
+        boolean validExternalConditions = !player.isShiftKeyDown() && !player.isCreative() && blockState.is(BlockTags.LOGS_THAT_BURN) &&
+                player.getItemBySlot(EquipmentSlot.MAINHAND).getItem() instanceof AxeItem;
         if (!validExternalConditions) return;
 
         ResourceLocation resourceLocation = ForgeRegistries.BLOCKS.getKey(blockState.getBlock());
@@ -78,7 +49,7 @@ public class TreeCapitateEvent {
             case "dark_oak_log" -> cutDarkOakTree(event.getLevel(), blockState, event.getPos());
             case "jungle_log" -> cutJungleTree(event.getLevel(), blockState, event.getPos());
             case "mangrove_log" -> cutMangroveTree(event.getLevel(), blockState, event.getPos());
-            case "oak_log" -> cutOakTree(event.getLevel(), blockState, event.getPos());
+            case "oak_log" -> cutOakTree(event.getLevel(), player, blockState, event.getPos());
             case "spruce_log" -> cutSpruceTree(event.getLevel(), blockState, event.getPos());
             default -> cutSomeModTree(event.getLevel(), blockState, event.getPos());
         }
@@ -168,7 +139,7 @@ public class TreeCapitateEvent {
         }*/
     }
 
-    private static void cutOakTree(LevelAccessor level, BlockState blockState, BlockPos initLogPos) {
+    private static void cutOakTree(LevelAccessor level, Player player, BlockState blockState, BlockPos initLogPos) {
         ArrayList<BlockPos> logPos = new ArrayList<>();
         logPos.add(initLogPos);
         Block block = blockState.getBlock();
@@ -210,8 +181,8 @@ public class TreeCapitateEvent {
 
             //Remove tree and reduce axe's durability
             for (BlockPos pos : logPos) {
-                level.setBlock(pos.above(30), level.getBlockState(pos), 2);
                 level.destroyBlock(pos, true);
+                player.getItemBySlot(EquipmentSlot.MAINHAND).hurt(logPos.size(), RandomSource.create(), null);
             }
 
             return;
@@ -250,7 +221,7 @@ public class TreeCapitateEvent {
         for (BlockPos pos : branchBlockPos) if (level.getBlockState(pos).getValue(RotatedPillarBlock.AXIS) == Direction.Axis.Y) return; //Fake branch
 
         //One tree trunk grabbed, easy case
-        if (trunkRootPos.size() == 1) oakLeavesCheckAndTreeDestroy(level, trunkRootPos.get(0), trunkHeight.get(0), branchBlockPos, logPos);
+        if (trunkRootPos.size() == 1) oakLeavesCheckAndTreeDestroy(level, player, trunkRootPos.get(0), trunkHeight.get(0), branchBlockPos, logPos);
         else {
             //Looking for needed trunk
             //Whether initLogPos is a part of a trunk or not
@@ -280,10 +251,10 @@ public class TreeCapitateEvent {
             branchBlockPos = new ArrayList<>(logsToBeRemoved);
             branchBlockPos.removeIf(pos -> level.getBlockState(pos).getValue(RotatedPillarBlock.AXIS) == Direction.Axis.Y);
 
-            oakLeavesCheckAndTreeDestroy(level, realRoot, realHeight, branchBlockPos, logsToBeRemoved);
+            oakLeavesCheckAndTreeDestroy(level, player, realRoot, realHeight, branchBlockPos, logsToBeRemoved);
         } //Several tree trunks
     }
-    private static void oakLeavesCheckAndTreeDestroy(LevelAccessor level, BlockPos realRoot, int realHeight, ArrayList<BlockPos> branchBlockPos, ArrayList<BlockPos> tree) {
+    private static void oakLeavesCheckAndTreeDestroy(LevelAccessor level, Player player, BlockPos realRoot, int realHeight, ArrayList<BlockPos> branchBlockPos, ArrayList<BlockPos> tree) {
         //Deciding whether the tree is natural or artificial
         if (!hasAtLeast9NaturalLeavesAround(level, realRoot.above(realHeight - 1)) &&
                 !hasAtLeast9NaturalLeavesAround(level, realRoot.above(realHeight - 2))) return; //Artificial
@@ -302,10 +273,10 @@ public class TreeCapitateEvent {
 
         if (branchBlockPos.size() - leavesBlockAbove > 2) return; //Artificial
 
-        //Removing all the blocks found and drawing tree's outline
+        //Removing all the blocks found and reduce axe's durability
         for (BlockPos pos : tree) {
-            level.setBlock(pos.above(30), level.getBlockState(pos), 2);
             level.destroyBlock(pos, true);
+            player.getItemBySlot(EquipmentSlot.MAINHAND).hurt(tree.size(), RandomSource.create(), null);
         }
     }
     private static void oakSeparateRealTree(LevelAccessor level, BlockPos realRoot, int realHeight, ArrayList<BlockPos> tree, ArrayList<BlockPos> trunkRootPos, ArrayList<Integer> trunkHeight) {
@@ -378,7 +349,7 @@ public class TreeCapitateEvent {
     }
 
     private static void cutSomeModTree(LevelAccessor level, BlockState blockState, BlockPos initLogPos) {
-        ArrayList<BlockPos> logPos = new ArrayList<>();
+        /*ArrayList<BlockPos> logPos = new ArrayList<>();
         logPos.add(initLogPos);
         Block block = blockState.getBlock();
 
@@ -440,6 +411,6 @@ public class TreeCapitateEvent {
                 level.setBlock(pos.above(30), level.getBlockState(pos), 2);
                 level.destroyBlock(pos, true);
             }
-        }
+        }*/
     }
 }

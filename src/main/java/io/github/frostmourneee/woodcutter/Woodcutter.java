@@ -1,9 +1,11 @@
 package io.github.frostmourneee.woodcutter;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.LeavesBlock;
+import net.minecraft.world.level.block.RotatedPillarBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.fml.common.Mod;
 
@@ -66,6 +68,18 @@ public class Woodcutter {
         }
 
         return false;
+    }
+
+    public static int trunkHeight (LevelAccessor level, BlockPos rootPos) {
+        if (!level.getBlockState(rootPos).is(BlockTags.LOGS_THAT_BURN)) throw new RuntimeException("Trunk cannot be without tree!");
+
+        int res = 1;
+        while (level.getBlockState(rootPos.above(res)).is(level.getBlockState(rootPos).getBlock()) &&
+               level.getBlockState(rootPos.above(res)).getValue(RotatedPillarBlock.AXIS) == Direction.Axis.Y) {
+            res++;
+        }
+
+        return res;
     }
 
     public static void customPrint(Object... str) {

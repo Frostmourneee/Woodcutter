@@ -249,90 +249,129 @@ public class TreeCapitateEvent {
         }
         for (BlockPos pos : branchBlockPos) if (level.getBlockState(pos).getValue(RotatedPillarBlock.AXIS) == Direction.Axis.Y) return; //Fake branch
 
-        //Easy case
-        if (trunkRootPos.size() == 1) {
-            //Deciding whether the tree is natural or artificial
-            if (!hasAtLeast9NaturalLeavesAround(level, trunkRootPos.get(0).above(trunkHeight.get(0) - 1)) &&
-                    !hasAtLeast9NaturalLeavesAround(level, trunkRootPos.get(0).above(trunkHeight.get(0) - 2))) return; //Artificial
+        //One tree trunk grabbed, easy case
+        if (trunkRootPos.size() == 1) oakLeavesCheckAndTreeDestroy(level, trunkRootPos.get(0), trunkHeight.get(0), branchBlockPos, logPos);
+        else {
+            //Looking for needed trunk
+            //Whether initLogPos is a part of a trunk or not
+            BlockPos realRoot = null;
+            int realHeight = 0;
+            for (int trunk = 0; trunk < trunkRootPos.size(); trunk++) {
+                if (initLogPos.getX() == trunkRootPos.get(trunk).getX() &&
+                    (initLogPos.getY() >= trunkRootPos.get(trunk).getY() && initLogPos.getY() < trunkRootPos.get(trunk).getY() + trunkHeight.get(trunk)) &&
+                    initLogPos.getZ() == trunkRootPos.get(trunk).getZ()) {
+                    realRoot = trunkRootPos.get(trunk);
+                    realHeight = trunkHeight.get(trunk);
+                    trunkRootPos.remove(trunk);
+                    trunkHeight.remove(trunk);
+                    break;
+                }
+            }
 
-            int leavesBlockAbove = 0;
-            for (BlockPos pos : branchBlockPos) {
-                //Decide whether there is leaves block above or not
-                for (int height = 1; height <= 10; height++) {
-                    BlockState aboveState = level.getBlockState(pos.above(height));
-                    if (aboveState.is(Blocks.OAK_LEAVES) && !aboveState.getValue(LeavesBlock.PERSISTENT)) {
-                        leavesBlockAbove++;
-                        break;
+            //Real root wasn't found
+            if (realRoot == null) {
+                realRoot = oakFindRealRootAndChangeTrunkRootPos(level, initLogPos, trunkRootPos, trunkHeight, logPos.size());
+                realHeight = trunkHeight(level, realRoot);
+            }
+
+            ArrayList<BlockPos> logsToBeRemoved = new ArrayList<>();
+            oakSeparateRealTree(level, realRoot, realHeight, logsToBeRemoved, trunkRootPos, trunkHeight);
+
+            branchBlockPos = new ArrayList<>(logsToBeRemoved);
+            branchBlockPos.removeIf(pos -> level.getBlockState(pos).getValue(RotatedPillarBlock.AXIS) == Direction.Axis.Y);
+
+            oakLeavesCheckAndTreeDestroy(level, realRoot, realHeight, branchBlockPos, logsToBeRemoved);
+        } //Several tree trunks
+    }
+    private static void oakLeavesCheckAndTreeDestroy(LevelAccessor level, BlockPos realRoot, int realHeight, ArrayList<BlockPos> branchBlockPos, ArrayList<BlockPos> tree) {
+        //Deciding whether the tree is natural or artificial
+        if (!hasAtLeast9NaturalLeavesAround(level, realRoot.above(realHeight - 1)) &&
+                !hasAtLeast9NaturalLeavesAround(level, realRoot.above(realHeight - 2))) return; //Artificial
+
+        int leavesBlockAbove = 0;
+        for (BlockPos pos : branchBlockPos) {
+            //Decide whether there is leaves block above or not
+            for (int height = 1; height <= 10; height++) {
+                BlockState aboveState = level.getBlockState(pos.above(height));
+                if (aboveState.is(Blocks.OAK_LEAVES) && !aboveState.getValue(LeavesBlock.PERSISTENT)) {
+                    leavesBlockAbove++;
+                    break;
+                }
+            }
+        }
+
+        if (branchBlockPos.size() - leavesBlockAbove > 2) return; //Artificial
+
+        //Removing all the blocks found and drawing tree's outline
+        for (BlockPos pos : tree) {
+            level.setBlock(pos.above(30), level.getBlockState(pos), 2);
+            level.destroyBlock(pos, true);
+        }
+    }
+    private static void oakSeparateRealTree(LevelAccessor level, BlockPos realRoot, int realHeight, ArrayList<BlockPos> tree, ArrayList<BlockPos> trunkRootPos, ArrayList<Integer> trunkHeight) {
+        Block block = level.getBlockState(realRoot).getBlock();
+        tree.add(realRoot);
+        int logsBeforeAdding = 0;
+        while (logsBeforeAdding != tree.size()) {
+            ArrayList<BlockPos> oldPos = new ArrayList<>(tree);
+            for (BlockPos pos : oldPos.subList(logsBeforeAdding, oldPos.size())) {
+                for (int num = 1; num <= 26; num++) {
+                    BlockPos neighbourPos = getNeighbour3DWDiag(pos, num);
+                    if (pos.equals(realRoot.above(realHeight - 1)) && neighbourPos.getY() > pos.getY()) continue;
+                    if (level.getBlockState(neighbourPos).is(block) && !tree.contains(neighbourPos)) {
+                        boolean isNeighbourAnotherTreeLog = false;
+                        for (int trunk = 0; trunk < trunkRootPos.size(); trunk++) {
+                            if (Math.abs(neighbourPos.getX()-trunkRootPos.get(trunk).getX()) <= 1 &&
+                                (neighbourPos.getY() >= trunkRootPos.get(trunk).getY() && neighbourPos.getY() < trunkRootPos.get(trunk).getY() + trunkHeight.get(trunk)) &&
+                                Math.abs(neighbourPos.getZ()-trunkRootPos.get(trunk).getZ()) <= 1) {
+                                isNeighbourAnotherTreeLog = true;
+                                break;
+                            }
+                        }
+                        if (isNeighbourAnotherTreeLog) continue;
+
+                        tree.add(neighbourPos);
                     }
                 }
             }
 
-            if (branchBlockPos.size() - leavesBlockAbove > 2) return; //Artificial
-
-            //Removing all the blocks found and drawing tree's outline
-            for (BlockPos pos : logPos) {
-                level.setBlock(pos.above(30), level.getBlockState(pos), 2);
-                level.destroyBlock(pos, true);
-            }
-        } else {
-
+            logsBeforeAdding = oldPos.size();
         }
+    }
+    private static BlockPos oakFindRealRootAndChangeTrunkRootPos(LevelAccessor level, BlockPos initLogPos, ArrayList<BlockPos> trunkRootPos, ArrayList<Integer> trunkHeight, int treeSize) {
+        Block block = level.getBlockState(initLogPos).getBlock();
+        ArrayList<BlockPos> neighboursLog = new ArrayList<>();
+        neighboursLog.add(initLogPos);
 
-        //Looking for needed trunk
-        //Whether initLogPos is a part of a trunk or not
-        BlockPos realRoot = null;
-        int realHeight = 0;
-        for (int trunk = 0; trunk < trunkRootPos.size(); trunk++) {
-            if (initLogPos.getX() == trunkRootPos.get(trunk).getX() &&
-                (initLogPos.getY() >= trunkRootPos.get(trunk).getY() && initLogPos.getY() < trunkRootPos.get(trunk).getY() + trunkHeight.get(trunk)) &&
-                initLogPos.getZ() == trunkRootPos.get(trunk).getZ()) {
-                realRoot = trunkRootPos.get(trunk);
-                realHeight = trunkHeight.get(trunk);
-                trunkRootPos.remove(trunk);
-                trunkHeight.remove(trunk);
-                break;
-            }
-        }
+        int logsBeforeAdding = 0;
+        for (int i = 0; i < treeSize; i++) {
+            ArrayList<BlockPos> oldPos = new ArrayList<>(neighboursLog);
 
-        //Real root was found
-        if (realRoot != null) {
-            ArrayList<BlockPos> logsToBeRemoved = new ArrayList<>();
-            logsToBeRemoved.add(realRoot);
-            logsBeforeAdding = 0;
-            while (logsBeforeAdding != logsToBeRemoved.size()) {
-                ArrayList<BlockPos> oldPos = new ArrayList<>(logsToBeRemoved);
-                for (BlockPos pos : oldPos.subList(logsBeforeAdding, oldPos.size())) {
-                    for (int num = 1; num <= 26; num++) {
-                        BlockPos neighbourPos = getNeighbour3DWDiag(pos, num);
-                        if (pos.equals(realRoot.above(realHeight - 1)) && neighbourPos.getY() > pos.getY()) continue;
-                        if (level.getBlockState(neighbourPos).is(block) && !logsToBeRemoved.contains(neighbourPos)) {
-                            boolean isNeighbourAnotherTreeLog = false;
-                            for (int trunk = 0; trunk < trunkRootPos.size(); trunk++) {
-                                if (Math.abs(neighbourPos.getX()-trunkRootPos.get(trunk).getX()) <= 1 &&
-                                    (neighbourPos.getY() >= trunkRootPos.get(trunk).getY() && neighbourPos.getY() < trunkRootPos.get(trunk).getY() + trunkHeight.get(trunk)) &&
-                                    Math.abs(neighbourPos.getZ()-trunkRootPos.get(trunk).getZ()) <= 1) {
-                                    isNeighbourAnotherTreeLog = true;
-                                    break;
-                                }
-                            }
-                            if (isNeighbourAnotherTreeLog) continue;
+            for (BlockPos pos : oldPos.subList(logsBeforeAdding, oldPos.size())) {
+                for (int num = 1; num <= 26; num++) {
+                    BlockPos neighbourPos = getNeighbour3DWDiag(pos, num);
+                    if (!level.getBlockState(neighbourPos).is(block)) continue;
 
-                            logsToBeRemoved.add(neighbourPos);
+                    for (int trunk = 0; trunk < trunkRootPos.size(); trunk++) {
+                        if (Math.abs(neighbourPos.getX()-trunkRootPos.get(trunk).getX()) <= 1 &&
+                            neighbourPos.getY() >= trunkRootPos.get(trunk).getY() && neighbourPos.getY() < (trunkRootPos.get(trunk).getY() + trunkHeight.get(trunk)) &&
+                            Math.abs(neighbourPos.getZ()-trunkRootPos.get(trunk).getZ()) <= 1 &&
+                            pos.getY() >= trunkRootPos.get(trunk).getY() && pos.getY() < (trunkRootPos.get(trunk).getY() + trunkHeight.get(trunk))) {
+                            BlockPos root = trunkRootPos.get(trunk);
+                            trunkRootPos.remove(trunk);
+                            trunkHeight.remove(trunk);
+                            return root;
                         }
                     }
-                }
 
-                logsBeforeAdding = oldPos.size();
+                    if (!neighboursLog.contains(neighbourPos)) neighboursLog.add(neighbourPos);
+                }
             }
 
-
-
-            for (BlockPos pos : logsToBeRemoved) level.setBlock(pos.above(30), level.getBlockState(pos), 2);
-            return;
+            logsBeforeAdding = oldPos.size();
         }
 
-        //Determine real root
-
+        throw new RuntimeException("findRealRoot() didn't find real root");
     }
 
     private static void cutSpruceTree(LevelAccessor level, BlockState blockState, BlockPos initLogPos) {
